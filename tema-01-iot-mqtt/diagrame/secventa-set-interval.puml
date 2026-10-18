@@ -1,0 +1,23 @@
+@startuml secventa-set-interval
+title Operatorul trimite SET_INTERVAL, device-ul confirmă
+
+actor "Operator" as OP
+participant "CommandConsole" as CC
+participant "Broker MQTT" as B
+queue "commands" as Q
+participant "AperiodicCommandTask" as AC
+participant "PeriodicTelemetryTask" as PT
+participant "MessageProcessor\n(status)" as MP
+participant "Dashboard" as DB
+
+OP -> CC : "device-1 SET_INTERVAL 1000"
+CC ->> B : publish(devices/device-1/commands,\n"SET_INTERVAL 1000")
+B ->> Q : put(comandă)
+AC -> Q : take()
+Q --> AC : "SET_INTERVAL 1000"
+AC -> PT : setPeriodMs(1000)
+AC ->> B : publish(status: "device-1;ts;OK SET_INTERVAL 1000")
+B ->> MP : status
+MP -> DB : onStatus("device-1")
+MP -> MP : afișează confirmarea în consolă
+@enduml

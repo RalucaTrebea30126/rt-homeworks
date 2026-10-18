@@ -1,5 +1,6 @@
 package ssatr.device;
 
+import java.util.Locale;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -27,15 +28,31 @@ public class SporadicAlarmTask implements Runnable {
 
     @Override
     public void run() {
-        // TODO 2: implementați taskul sporadic:
-        //   - așteptați un eveniment: alarmEvents.take()
-        //   - dacă de la ultima eliberare au trecut mai puțin de
-        //     MIN_INTERARRIVAL_MS, respingeți evenimentul (afișați un mesaj)
-        //   - altfel publicați pe Config.alarmTopic(deviceId) mesajul
-        //     "deviceId;timestamp;temperatura;prag"
-        //     (pragul curent poate fi transmis împreună cu temperatura sau
-        //      citit din PeriodicTelemetryTask; alegeți și justificați în raport)
-        //
-        // Vezi exemplul exemple/01-taskuri/.../SporadicTaskExample.java
+        long minNanos = MIN_INTERARRIVAL_MS * 1_000_000L;
+        long lastRelease = System.nanoTime() - minNanos;   // prima alarmă este acceptată
+
+        while (!Thread.currentThread().isInterrupted()) {
+            double t;
+            try {
+                t = alarmEvents.take();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            long now = System.nanoTime();
+            if (now - lastRelease < minNanos) {
+                System.out.println("[" + deviceId + "] alarma respinsă (interval minim între sosiri): "
+                        + String.format(Locale.US, "%.2f", t));
+                continue;
+            }
+            lastRelease = now;
+
+            String payload = deviceId + ";" + System.currentTimeMillis() + ";"
+                    + String.format(Locale.US, "%.2f", t) + ";"
+                    + String.format(Locale.US, "%.2f", PeriodicTelemetryTask.currentThreshold());
+            mqtt.publish(Config.alarmTopic(deviceId), payload);
+            System.out.println("[" + deviceId + "] alarmă publicată: " + payload);
+        }
     }
 }

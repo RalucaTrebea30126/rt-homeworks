@@ -1,0 +1,58 @@
+@startuml componente
+skinparam componentStyle uml2
+
+node "Device Simulator (device-N)" {
+  component "PeriodicTelemetryTask" as PT
+  component "SporadicAlarmTask" as SA
+  component "AperiodicCommandTask" as AC
+  component "TemperatureSensor" as TS
+  component "MqttConnection" as DM
+}
+
+node "Broker MQTT\n(control.aut.utcluj.ro:11188)" as B {
+  component "Broker" as BR
+}
+
+node "Business Service" {
+  component "MessageProcessor\n(telemetry / alarm / status)" as MP
+  component "Dashboard" as DB
+  component "CsvStorage" as CS
+  component "CommandConsole" as CC
+  component "MqttConnection" as BM
+}
+
+interface "devices/<id>/telemetry" as TEL
+interface "devices/<id>/alarm" as ALM
+interface "devices/<id>/commands" as CMD
+interface "devices/<id>/status" as STA
+
+' interfețe oferite de broker
+BR - TEL
+BR - ALM
+BR - CMD
+BR - STA
+
+' device
+PT --> TS : read()
+PT --> SA : alarmEvents\n(BlockingQueue)
+AC --> PT : setPeriodMs()\nsetThreshold()
+AC --> TS : reset()
+PT --> DM
+SA --> DM
+AC --> DM
+DM -( TEL : publish
+DM -( ALM : publish
+DM -( STA : publish
+DM -( CMD : subscribe
+
+' business service
+BM -( TEL : subscribe
+BM -( ALM : subscribe
+BM -( STA : subscribe
+BM -( CMD : publish
+BM --> MP : inbox\n(BlockingQueue)
+MP --> CS : append()
+MP --> DB : update
+CC --> DB : print()
+CC --> BM : publish
+@enduml

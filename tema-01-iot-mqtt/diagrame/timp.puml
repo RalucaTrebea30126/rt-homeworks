@@ -1,0 +1,66 @@
+@startuml timp
+title Diagramă de timp: taskurile device-ului (~10 s)
+
+scale 1000 as 80 pixels
+
+concise "Periodic (T = 2000 ms)" as P
+concise "Sporadic (MIN = 5000 ms)" as S
+concise "Aperiodic" as A
+
+@0
+P is "J1"
+S is {hidden}
+A is {hidden}
+
+@100
+P is {hidden}
+
+@2000
+P is "J2"
+
+@2100
+P is {hidden}
+
+@4000
+P is "J3 (T > prag)"
+
+@4100
+P is {hidden}
+S is "publică alarma"
+
+@4200
+S is {hidden}
+
+@6000
+P is "J4 (T > prag)"
+
+@6100
+P is {hidden}
+S is "RESPINS (2000 < 5000)"
+
+@6250
+S is {hidden}
+
+@7000
+A is "SET_THRESHOLD"
+
+@7150
+A is {hidden}
+
+@8000
+P is "J5"
+
+@8100
+P is {hidden}
+
+@10000
+P is "J6"
+
+@10100
+P is {hidden}
+
+P@4000 -> S@4100 : eveniment
+P@6000 -> S@6100 : eveniment
+
+highlight 6100 to 6250 #Gold : alarmă respinsă
+@enduml

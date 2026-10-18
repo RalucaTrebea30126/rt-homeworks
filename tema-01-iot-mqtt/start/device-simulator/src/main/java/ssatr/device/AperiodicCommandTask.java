@@ -7,7 +7,7 @@ import java.util.concurrent.BlockingQueue;
  *
  * Comenzile sosesc oricând, pe MQTT, fără un interval minim între ele, și sunt
  * puse în coada commands. Fiecare comandă eliberează un job al taskului.
- * Comenzi care trebuie suportate:
+ * Comenzi suportate:
  *
  *   SET_INTERVAL <ms>       schimbă perioada T a taskului periodic
  *   SET_THRESHOLD <valoare> schimbă pragul de alarmă
@@ -15,8 +15,7 @@ import java.util.concurrent.BlockingQueue;
  *   STATUS                  raportează perioada și pragul curente
  *
  * După executarea fiecărei comenzi, device-ul publică pe Config.statusTopic(deviceId)
- * o confirmare: "deviceId;timestamp;text", de exemplu
- * "device-1;1727600000000;OK SET_INTERVAL 1000".
+ * o confirmare: "deviceId;timestamp;text".
  */
 public class AperiodicCommandTask implements Runnable {
 
@@ -37,14 +36,53 @@ public class AperiodicCommandTask implements Runnable {
 
     @Override
     public void run() {
-        // TODO 3: implementați taskul aperiodic:
-        //   - preluați comenzile din coadă: commands.take()
-        //   - separați numele comenzii de parametru: command.split(" ")
-        //   - executați comanda (periodic.setPeriodMs(...), sensor.reset() etc.)
-        //   - publicați confirmarea pe Config.statusTopic(deviceId)
-        //   - o comandă necunoscută sau un parametru invalid nu trebuie să
-        //     oprească taskul: publicați "ERROR <motiv>"
-        //
-        // Vezi exemplul exemple/01-taskuri/.../AperiodicTaskExample.java
+        while (!Thread.currentThread().isInterrupted()) {
+            String command;
+            try {
+                command = commands.take();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            String reply;
+            try {
+                reply = execute(command.trim());
+            } catch (Exception e) {
+                // orice eroare (parametru lipsă, număr invalid etc.) nu oprește taskul
+                reply = "ERROR " + command.trim() + " (" + e.getMessage() + ")";
+            }
+
+            mqtt.publish(Config.statusTopic(deviceId),
+                    deviceId + ";" + System.currentTimeMillis() + ";" + reply);
+            System.out.println("[" + deviceId + "] " + reply);
+        }
+    }
+
+    private String execute(String command) {
+        String[] p = command.split("\\s+");
+        switch (p[0]) {
+            case "SET_INTERVAL": {
+                if (p.length != 2) throw new IllegalArgumentException("lipsește parametrul");
+                long ms = Long.parseLong(p[1]);
+                if (ms <= 0) throw new IllegalArgumentException("intervalul trebuie să fie > 0");
+                periodic.setPeriodMs(ms);
+                return "OK SET_INTERVAL " + ms;
+            }
+            case "SET_THRESHOLD": {
+                if (p.length != 2) throw new IllegalArgumentException("lipsește parametrul");
+                double v = Double.parseDouble(p[1]);
+                periodic.setThreshold(v);
+                return "OK SET_THRESHOLD " + p[1];
+            }
+            case "RESET":
+                sensor.reset();
+                return "OK RESET";
+            case "STATUS":
+                return "OK STATUS period=" + periodic.getPeriodMs()
+                        + " threshold=" + periodic.getThreshold();
+            default:
+                throw new IllegalArgumentException("comandă necunoscută");
+        }
     }
 }

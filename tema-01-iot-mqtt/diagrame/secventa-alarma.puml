@@ -1,0 +1,30 @@
+@startuml secventa-alarma
+title Telemetrie peste prag -> alarmă
+
+participant "PeriodicTelemetryTask" as PT
+participant "TemperatureSensor" as TS
+queue "alarmEvents" as Q
+participant "SporadicAlarmTask" as SA
+participant "Broker MQTT" as B
+participant "MessageProcessor\n(alarm)" as MP
+participant "CsvStorage" as CS
+participant "Dashboard" as DB
+
+PT -> TS : read()
+TS --> PT : temperatura
+PT ->> B : publish(telemetry)
+PT -> PT : temperatura > prag
+PT ->> Q : offer(temperatura)
+
+SA -> Q : take()
+Q --> SA : temperatura
+alt au trecut >= 5000 ms de la ultima alarmă
+  SA ->> B : publish(alarm: deviceId;ts;temp;prag)
+  B ->> MP : alarm
+  MP -> CS : append("alarm", mesaj)
+  MP -> DB : onAlarm(deviceId, temp)
+  MP -> MP : afișează ALARMĂ în consolă
+else mai puțin de 5000 ms
+  SA -> SA : respinge evenimentul (mesaj în consolă)
+end
+@enduml
