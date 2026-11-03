@@ -9,8 +9,8 @@
 
 // Rețeaua Wi-Fi. ESP32-C3 merge doar pe 2.4 GHz. "iot-demo" este rețeaua din
 // laborator; acasă puneți aici rețeaua voastră sau hotspot-ul telefonului.
-const char* const WIFI_SSID = "iot-demo";
-const char* const WIFI_PASSWORD = "demo123!";
+const char* const WIFI_SSID = "TP-Link_8464";
+const char* const WIFI_PASSWORD = "55835855";
 
 const char* const BROKER_URI = "mqtt://control.aut.utcluj.ro:11188";
 
